@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  # C Compiler Runner Image
+  runner:
+    build: ./runner
+    image: c-runner:latest
+    # This service just builds the image, doesn't run a persistent container
+    command: "true"
+    profiles: ["build-only"]
+
+  # Backend API Server
+  backend:
+    build: ./backend
+    ports:
+      - "3001:3001"
+    volumes:
+      # WARNING: This mounts the Docker socket inside the container
+      # This is a SIGNIFICANT security risk in production!
+      # Only use for development/demo purposes.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # For temporary file storage
+      - /tmp:/tmp
+    environment:
+      - NODE_ENV=development
+    depends_on:
+      - runner
+    restart: unless-stopped
+
+  # Frontend React App
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - REACT_APP_BACKEND_URL=http://localhost:3001
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+# Security Warning:
+# This compose file mounts /var/run/docker.sock which gives the backend
+# container significant privileges over the host system. This is acceptable
+# for development/demo but should NEVER be used in production.
+#
+# In production, consider:
+# 1. Using Docker API over TCP with TLS authentication
+# 2. Running the backend outside of Docker
+# 3. Using a dedicated container orchestration system
+# 4. Implementing additional access controls and monitoring
